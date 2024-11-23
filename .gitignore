@@ -1,0 +1,58 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs/
+*.log
+*.log.*
+debug.log
+
+# Environment variables
+.env
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.bak
+*.orig
+
+# System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDE-specific files
+.idea/
+.vscode/
+*.iml
+
+package-lock.json
+yarn.lock
+
+# Test coverage
+coverage/
+
+# Git-specific files
+*.orig
+
+# Miscellaneous
+*.log
+*.csv
+*.out
+*.pid
+*.seed
+*.gz
+
+# Exclude local database
+*.sqlite
+*.sqlite3

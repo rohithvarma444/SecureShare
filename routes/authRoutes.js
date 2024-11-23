@@ -15,7 +15,6 @@ router.post('/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
 
-        // Check if user already exists
         const userDetails = await User.findOne({ email: email });
         if (userDetails) {
             return res.status(400).json({
@@ -31,7 +30,6 @@ router.post('/signup', async (req, res) => {
         const publicKey = key.exportKey('public');
         const privateKey = key.exportKey('private');
 
-        // Create new user
         const newUser = new User({
             name,
             email,
