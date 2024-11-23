@@ -6,7 +6,7 @@ SecureShare is designed to facilitate secure communication between users by empl
 
 ## Features
 - **User Authentication**: Users can register and log in securely.
-- **Message Encryption**: All messages are encrypted using AES (Advanced Encryption Standard).
+- **File Encryption**: All files are encrypted using AES (Advanced Encryption Standard).
 - **Secure Key Exchange**: Utilizes RSA (Rivest-Shamir-Adleman) for secure key exchange between users.
 - **User Interface**: A simple and intuitive interface for sending and receiving messages.
 
