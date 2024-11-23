@@ -1,5 +1,5 @@
 # SecureShare
-This repo consists of my Cryptography course project which involves safe transfer between users using cryptographic encryptions.
+This repo consists of my Cryptography course project which involves safe transfer of files between users using cryptographic encryptions.
 
 ## Project Overview
 SecureShare is designed to facilitate secure communication between users by employing various cryptographic techniques. The primary goal is to ensure that messages are encrypted before transmission and can only be decrypted by the intended recipient.
