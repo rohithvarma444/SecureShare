@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/authRoutes.js'
 import connectDB from './config/db.js';
 import dotenv from 'dotenv';
-import fileRoutes from "./routes/fileRoutes.js"
+import { router } from "./routes/fileRoutes.js"
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 connectDB();
 app.use('/auth',authRoutes)
-app.use('/file',fileRoutes);
+app.use('/file',router);
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');

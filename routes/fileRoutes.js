@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import User from '../models/User.js';
 import File from '../models/File.js';
-import {auth} from '../middlewares/auth.js'
+import {authMiddleWare} from '../middlewares/auth.js'
 
 const router = express.Router();
 
@@ -27,8 +27,10 @@ const upload = multer({
     }
 });
 
-router.post('/upload',auth, upload.single('doc'), async (req, res) => {
-    const { recvId, senderId } = req.body;
+router.post('/upload',authMiddleWare, upload.single('doc'), async (req, res) => {
+    const { recvId } = req.body;
+
+    const senderId = req.user.id
     
     try {
         // Validate input
@@ -48,19 +50,23 @@ router.post('/upload',auth, upload.single('doc'), async (req, res) => {
             });
         }
 
-        const { publicKey, name } = receiver;
+        const { publicKey } = receiver;
 
-        // Generate cryptographically secure keys
         const aesKey = crypto.randomBytes(32);
         const aesIv = crypto.randomBytes(16);
 
-        // File encryption
+
+        console.log("File upload keys: ",aesKey);
+        console.log("aesIv upload: ",aesIv);
+
         const cipher = crypto.createCipheriv('aes-256-cbc', aesKey, aesIv);
         const inputFile = fs.createReadStream(req.file.path);
-        const encryptedFilePath = path.join('uploads/', `encrypted-${req.file.filename}`);
+        const newFile = `enc-${req.file.filename}`;
+        const encryptedFilePath = path.join('uploads/', newFile);
         const outputFile = fs.createWriteStream(encryptedFilePath);
 
-        // Pipe and encrypt file
+        console.log(1);
+
         const encryptedStream = inputFile.pipe(cipher).pipe(outputFile);
 
         await new Promise((resolve, reject) => {
@@ -68,25 +74,26 @@ router.post('/upload',auth, upload.single('doc'), async (req, res) => {
             outputFile.on('error', reject);
         });
 
-        // Encrypt AES key with receiver's public key
+        console.log(2)
+        console.log(publicKey);
         const combinedKey = Buffer.concat([aesKey, aesIv]);
         const encryptedAesKey = crypto.publicEncrypt(publicKey, combinedKey);
 
-        // Create file record
         const fileRecord = new File({
-            fileName: `doc-${name}`,
+            fileName: newFile,  
             senderId,
             receiverId: recvId,
             filePath: encryptedFilePath,
             encryptedKey: encryptedAesKey.toString('base64'),
-            aesKey: aesKey.toString('base64'),
-            aesIv: aesIv.toString('base64')
         });
 
+        console.log(3);
+        console.log(fileRecord);
         await fileRecord.save();
 
-        // Remove original unencrypted file
+        console.log(req.file.path);
         fs.unlinkSync(req.file.path);
+
 
         return res.status(200).json({
             success: true,
@@ -96,6 +103,7 @@ router.post('/upload',auth, upload.single('doc'), async (req, res) => {
 
     } catch (error) {
         console.error('File Upload Error:', error);
+
         return res.status(500).json({
             success: false,
             message: "Error in file upload",
@@ -104,10 +112,9 @@ router.post('/upload',auth, upload.single('doc'), async (req, res) => {
     }
 });
 
-// File download route
-router.get('/download/:fileId', auth,async (req, res) => {
+//file download route
+router.get('/download/:fileId', authMiddleWare, async (req, res) => {
     try {
-        // Find file record
         const fileRecord = await File.findById(req.params.fileId);
         if (!fileRecord) {
             return res.status(404).json({
@@ -116,16 +123,15 @@ router.get('/download/:fileId', auth,async (req, res) => {
             });
         }
 
-        const {currentUser} = req.user.id; 
-        if (currentUser._id.toString() !== fileRecord.receiverId.toString()) {
+        const currentUserId = req.user.id;
+        if (currentUserId.toString() !== fileRecord.receiverId.toString()) {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized download"
             });
         }
 
-        // Retrieve user's private key
-        const user = await User.findById(currentUser._id);
+        const user = await User.findById(currentUserId);
         if (!user || !user.privateKey) {
             return res.status(401).json({
                 success: false,
@@ -135,40 +141,57 @@ router.get('/download/:fileId', auth,async (req, res) => {
 
         // Decrypt AES key
         const encryptedKey = Buffer.from(fileRecord.encryptedKey, 'base64');
-        const decryptedCombinedKey = crypto.privateDecrypt(
-            { 
-                key: user.privateKey, 
-                passphrase: '' 
-            }, 
-            encryptedKey
-        );
-        
-        // Split decrypted key
-        const aesKey = decryptedCombinedKey.slice(0, 32);
-        const aesIv = decryptedCombinedKey.slice(32);
+        let decryptedCombinedKey;
+        try {
+            decryptedCombinedKey = crypto.privateDecrypt(
+                {
+                    key: user.privateKey,
+                    passphrase: '', 
+                },
+                encryptedKey
+            );
+        } catch (err) {
+            console.error('Key Decryption Error:', err);
+            return res.status(500).json({
+                success: false,
+                message: "Failed to decrypt AES key",
+                errorDetails: err.message
+            });
+        }
 
-        // Decrypt file
-        const decipher = crypto.createDecipheriv('aes-256-cbc', aesKey, aesIv);
-        const inputFile = fs.createReadStream(fileRecord.filePath);
-        const decryptedFilePath = path.join('downloads/', `decrypted-${fileRecord.fileName}`);
-        const outputFile = fs.createWriteStream(decryptedFilePath);
+        const aesKey = decryptedCombinedKey.subarray(0, 32); 
+        const aesIv = decryptedCombinedKey.subarray(32); 
 
-        inputFile.pipe(decipher).pipe(outputFile);
+        console.log("decrypted aeskey:",aesKey);
+        console.log("decrypted iv:",aesIv);
 
-        await new Promise((resolve, reject) => {
-            outputFile.on('finish', resolve);
-            outputFile.on('error', reject);
-        });
+        const inputFilePath = fileRecord.filePath;
+        const outputFilePath = path.join('downloads/', `decrypted-${fileRecord.fileName}`);
+        try {
+            const decipher = crypto.createDecipheriv('aes-256-cbc', aesKey, aesIv);
+            const inputFile = fs.createReadStream(inputFilePath);
+            const outputFile = fs.createWriteStream(outputFilePath);
 
-        res.download(decryptedFilePath, fileRecord.fileName, (err) => {
+            await new Promise((resolve, reject) => {
+                inputFile.pipe(decipher).pipe(outputFile);
+                outputFile.on('finish', resolve);
+                outputFile.on('error', reject);
+            });
+        } catch (err) {
+            console.error('File Decryption Error:', err);
+            return res.status(500).json({
+                success: false,
+                message: "Error decrypting file",
+                errorDetails: err.message
+            });
+        }
+
+        res.download(outputFilePath, fileRecord.fileName, (err) => {
             if (err) {
                 console.error('Download Error:', err);
-                fs.unlinkSync(decryptedFilePath);
-            } else {
-                fs.unlinkSync(decryptedFilePath);
             }
+            fs.unlinkSync(outputFilePath);
         });
-
     } catch (error) {
         console.error('File Download Error:', error);
         return res.status(500).json({
@@ -179,4 +202,4 @@ router.get('/download/:fileId', auth,async (req, res) => {
     }
 });
 
-export default router;
+export { router }; 

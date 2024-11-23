@@ -22,17 +22,8 @@ const fileSchema = new mongoose.Schema({
     encryptedKey: { 
         type: String, 
         required: true 
-    },
-    aesKey: { 
-        type: String, 
-        required: true 
-    },
-    aesIv: { 
-        type: String, 
-        required: true 
-    }
+    } 
 }, { timestamps: true });
-
 
 const File = mongoose.model('File', fileSchema);
 

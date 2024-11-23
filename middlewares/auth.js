@@ -1,8 +1,7 @@
 import jwt from 'jsonwebtoken';
 
-const auth = async (req, res, next) => {
+export const authMiddleWare = async (req, res, next) => {
     try {
-        // Get token from header
         const token = req.header('Authorization')?.replace('Bearer ', '');
         
         if (!token) {
@@ -12,10 +11,8 @@ const auth = async (req, res, next) => {
             });
         }
 
-        // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // Add user info to request
         req.user = {
             id: decoded.id,
             name: decoded.name,
@@ -31,5 +28,3 @@ const auth = async (req, res, next) => {
         });
     }
 };
-
-export default auth;
